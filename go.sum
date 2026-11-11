@@ -10,8 +10,8 @@ github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1x
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/crazy-max/cron/v3 v3.1.1 h1:8tsAXjV522daYSaN6/Mb/Nh8X/Ez+nedU0KuPV98rNU=
 github.com/crazy-max/cron/v3 v3.1.1/go.mod h1:yexi3kKoh3GcnmRCppyJKsvYIBWzDVaym0dwNWo+zdg=
-github.com/crazy-max/gonfig v0.9.0 h1:KOHm2t6OgEzcM7qgCeM11dKv0hFnHj8YoDtaVL8NFPA=
-github.com/crazy-max/gonfig v0.9.0/go.mod h1:B6tZx1rYUMZfXouIfw5ApNnE0pHzl6MPqNAEWN5gEEI=
+github.com/crazy-max/gonfig v0.10.0 h1:HF0DIuDbRKuMYIooSoNBF4BC/F+tnP9K4+8CdIYOhfU=
+github.com/crazy-max/gonfig v0.10.0/go.mod h1:rWW8Q1GEsExe1MlICNGL+GvDU4RgOKtS5FUmfScdgsg=
 github.com/crowdsecurity/crowdsec v1.8.2 h1:AiLb5cvmGsXmsHxjmBgcv+U3j/renaT4xIeGAj3+1aU=
 github.com/crowdsecurity/crowdsec v1.8.2/go.mod h1:aj2F1dUo5ePuNoiEW2fpXXalzT4E38J75FccHkZRz+o=
 github.com/crowdsecurity/go-cs-lib v0.0.25 h1:Ov6VPW9yV+OPsbAIQk1iTkEWhwkpaG0v3lrBzeqjzj4=

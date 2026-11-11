@@ -7,24 +7,25 @@ import (
 
 	"github.com/crazy-max/cron/v3"
 	"github.com/crazy-max/gonfig"
+	"github.com/go-openapi/strfmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
-	LAPI             LAPI          `yaml:"lapi"`
-	Database         string        `yaml:"database"`
-	DryRun           bool          `yaml:"dryRun"`
-	Schedule         string        `yaml:"schedule"`
-	Escalation       Escalation    `yaml:"escalation"`
-	ResetAfter       time.Duration `yaml:"resetAfter"`
-	ExcludeScenarios []string      `yaml:"excludeScenarios"`
+	LAPI             LAPI            `yaml:"lapi"`
+	Database         string          `yaml:"database"`
+	DryRun           bool            `yaml:"dryRun"`
+	Schedule         string          `yaml:"schedule"`
+	Escalation       Escalation      `yaml:"escalation"`
+	ResetAfter       strfmt.Duration `yaml:"resetAfter"`
+	ExcludeScenarios []string        `yaml:"excludeScenarios"`
 }
 
 type Escalation struct {
-	BaseDuration time.Duration `yaml:"baseDuration"`
-	Multiplier   int64         `yaml:"multiplier"`
-	MaxDuration  time.Duration `yaml:"maxDuration"`
+	BaseDuration strfmt.Duration `yaml:"baseDuration"`
+	Multiplier   int64           `yaml:"multiplier"`
+	MaxDuration  strfmt.Duration `yaml:"maxDuration"`
 }
 
 type LAPI struct {
@@ -42,11 +43,11 @@ func Load(path string) (Config, error) {
 		DryRun:   true,
 		Schedule: "@every 30s",
 		Escalation: Escalation{
-			BaseDuration: 4 * time.Hour,
+			BaseDuration: strfmt.Duration(4 * time.Hour),
 			Multiplier:   2,
-			MaxDuration:  720 * time.Hour,
+			MaxDuration:  strfmt.Duration(30 * 24 * time.Hour),
 		},
-		ResetAfter: 720 * time.Hour,
+		ResetAfter: strfmt.Duration(30 * 24 * time.Hour),
 	}
 	fileLoader := gonfig.NewFileLoader(gonfig.FileLoaderConfig{
 		Filename: path,

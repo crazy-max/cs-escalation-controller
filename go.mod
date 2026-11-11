@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	github.com/alecthomas/kong v1.17.0
 	github.com/crazy-max/cron/v3 v3.1.1
-	github.com/crazy-max/gonfig v0.9.0
+	github.com/crazy-max/gonfig v0.10.0
 	github.com/crowdsecurity/crowdsec v1.8.2
 	github.com/go-openapi/strfmt v0.27.4
 	github.com/pkg/errors v0.9.1
