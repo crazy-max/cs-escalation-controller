@@ -12,13 +12,19 @@ import (
 )
 
 type Config struct {
-	LAPI             LAPI            `yaml:"lapi"`
-	Database         string          `yaml:"database"`
-	DryRun           bool            `yaml:"dryRun"`
-	Schedule         string          `yaml:"schedule"`
-	ResetAfter       time.Duration   `yaml:"resetAfter"`
-	Durations        []time.Duration `yaml:"durations"`
-	ExcludeScenarios []string        `yaml:"excludeScenarios"`
+	LAPI             LAPI          `yaml:"lapi"`
+	Database         string        `yaml:"database"`
+	DryRun           bool          `yaml:"dryRun"`
+	Schedule         string        `yaml:"schedule"`
+	Escalation       Escalation    `yaml:"escalation"`
+	ResetAfter       time.Duration `yaml:"resetAfter"`
+	ExcludeScenarios []string      `yaml:"excludeScenarios"`
+}
+
+type Escalation struct {
+	BaseDuration time.Duration `yaml:"baseDuration"`
+	Multiplier   int64         `yaml:"multiplier"`
+	MaxDuration  time.Duration `yaml:"maxDuration"`
 }
 
 type LAPI struct {
@@ -32,18 +38,15 @@ type LAPI struct {
 
 func Load(path string) (Config, error) {
 	c := Config{
-		Database:   "data/state.db",
-		DryRun:     true,
-		Schedule:   "@every 30s",
-		ResetAfter: 720 * time.Hour,
-		Durations: []time.Duration{
-			4 * time.Hour,
-			8 * time.Hour,
-			12 * time.Hour,
-			24 * time.Hour,
-			168 * time.Hour,
-			720 * time.Hour,
+		Database: "data/state.db",
+		DryRun:   true,
+		Schedule: "@every 30s",
+		Escalation: Escalation{
+			BaseDuration: 4 * time.Hour,
+			Multiplier:   2,
+			MaxDuration:  720 * time.Hour,
 		},
+		ResetAfter: 720 * time.Hour,
 	}
 	fileLoader := gonfig.NewFileLoader(gonfig.FileLoaderConfig{
 		Filename: path,
@@ -97,16 +100,17 @@ func (c Config) Validate() error {
 	if _, err := ParseSchedule(c.Schedule); err != nil {
 		return err
 	}
+	if c.Escalation.BaseDuration <= 0 {
+		return errors.New("escalation.baseDuration must be positive")
+	}
+	if c.Escalation.Multiplier < 2 {
+		return errors.New("escalation.multiplier must be at least 2")
+	}
+	if c.Escalation.MaxDuration < c.Escalation.BaseDuration {
+		return errors.New("escalation.maxDuration must be at least escalation.baseDuration")
+	}
 	if c.ResetAfter < 0 {
 		return errors.New("resetAfter must be a nonnegative duration (0 disables reset)")
-	}
-	for i, duration := range c.Durations {
-		if duration <= 0 || (i > 0 && duration <= c.Durations[i-1]) {
-			return errors.New("durations must be positive and strictly increasing")
-		}
-	}
-	if len(c.Durations) == 0 {
-		return errors.New("durations cannot be empty")
 	}
 	return nil
 }

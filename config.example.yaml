@@ -1,5 +1,5 @@
 # CSEC_* environment variables override file values, for example:
-# CSEC_LAPI_PASSWORD, CSEC_DRYRUN=false, CSEC_DURATIONS=4h,8h,12h,24h,168h,720h.
+# CSEC_LAPI_PASSWORD, CSEC_DRYRUN=false, CSEC_ESCALATION_MULTIPLIER=2.
 
 # CrowdSec Local API and registered machine credentials (not a bouncer API key).
 lapi:
@@ -32,21 +32,19 @@ dryRun: true
 # Examples: "*/30 * * * * *", "*/5 * * * *", "CRON_TZ=UTC 0 * * * *".
 schedule: "@every 30s"
 
+# Total ban duration is baseDuration * multiplier^tier, capped at maxDuration.
+# The multiplier is an integer of at least 2.
+# Overlapping alerts share one offense; existing longer bans are never shortened.
+# Defaults: 4h, 8h, 16h, 32h, 64h, 128h, 256h, 512h, then 720h.
+# Go durations use hours: 720h = 30 days.
+escalation:
+  baseDuration: 4h
+  multiplier: 2
+  maxDuration: 720h
+
 # Reset to the first tier after 30 quiet days. Time banned is not quiet time.
 # Set to "0s" to retain repeat-offender history indefinitely.
 resetAfter: 720h
-
-# Total ban duration per offense, capped at the last tier, not added to the ban.
-# Overlapping alerts share one offense; existing longer bans are never shortened.
-# Go durations use hours: 168h = 1 week, 720h = 30 days.
-# Omitting this list or using [] keeps the default ladder.
-durations:
-  - 4h
-  - 8h
-  - 12h
-  - 24h
-  - 168h
-  - 720h
 
 # Exact scenario names to exclude from escalation (existing bans remain active).
 excludeScenarios: []

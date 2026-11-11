@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -8,11 +9,85 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestExponentialCap(t *testing.T) {
+	cases := []struct {
+		name         string
+		base         time.Duration
+		multiplier   int64
+		maximum      time.Duration
+		previousTier int
+		want         time.Duration
+		wantTier     int
+	}{
+		{
+			name:       "custom multiplier",
+			base:       time.Hour,
+			multiplier: 3,
+			maximum:    10 * time.Hour,
+			want:       3 * time.Hour,
+			wantTier:   1,
+		},
+		{
+			name:       "cap between powers",
+			base:       4 * time.Hour,
+			multiplier: 2,
+			maximum:    6 * time.Hour,
+			want:       6 * time.Hour,
+			wantTier:   1,
+		},
+		{
+			name:       "base equals cap",
+			base:       time.Hour,
+			multiplier: 2,
+			maximum:    time.Hour,
+			want:       time.Hour,
+			wantTier:   0,
+		},
+		{
+			name:       "multiplication would overflow",
+			base:       time.Hour,
+			multiplier: math.MaxInt64,
+			maximum:    time.Duration(math.MaxInt64),
+			want:       time.Duration(math.MaxInt64),
+			wantTier:   1,
+		},
+		{
+			name:         "stored tier above cap",
+			base:         4 * time.Hour,
+			multiplier:   2,
+			maximum:      720 * time.Hour,
+			previousTier: 20,
+			want:         720 * time.Hour,
+			wantTier:     8,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := Policy{
+				BaseDuration: tc.base,
+				Multiplier:   tc.multiplier,
+				MaxDuration:  tc.maximum,
+			}
+			now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			previous := Episode{
+				Tier:  tc.previousTier,
+				Until: now,
+			}
+			ep, fresh := p.Next(previous, now, now, now, now)
+			require.True(t, fresh)
+			assert.Equal(t, tc.want, ep.Until.Sub(now))
+			assert.Equal(t, tc.wantTier, ep.Tier)
+		})
+	}
+}
+
 func TestPolicy(t *testing.T) {
 	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
 	p := Policy{
-		Durations:  []time.Duration{4 * time.Hour, 8 * time.Hour, 12 * time.Hour, 24 * time.Hour, 168 * time.Hour, 720 * time.Hour},
-		ResetAfter: 720 * time.Hour,
+		BaseDuration: 4 * time.Hour,
+		Multiplier:   2,
+		MaxDuration:  720 * time.Hour,
+		ResetAfter:   720 * time.Hour,
 	}
 	cases := []struct {
 		name      string
@@ -71,12 +146,12 @@ func TestPolicy(t *testing.T) {
 		{
 			name: "month ban does not reset itself",
 			previous: Episode{
-				Tier:       5,
+				Tier:       8,
 				Until:      now,
 				LastAttack: now.Add(-720 * time.Hour),
 			},
 			start:     now,
-			wantTier:  5,
+			wantTier:  8,
 			wantFresh: true,
 		},
 	}
@@ -90,19 +165,22 @@ func TestPolicy(t *testing.T) {
 	}
 }
 
-func TestLadderAndResetConfiguration(t *testing.T) {
+func TestExponentialAndResetConfiguration(t *testing.T) {
 	p := Policy{
-		Durations:  []time.Duration{4 * time.Hour, 8 * time.Hour, 12 * time.Hour, 24 * time.Hour, 168 * time.Hour, 720 * time.Hour},
-		ResetAfter: 0,
+		BaseDuration: 4 * time.Hour,
+		Multiplier:   2,
+		MaxDuration:  720 * time.Hour,
+		ResetAfter:   0,
 	}
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	var ep Episode
-	for i := range 8 {
+	durations := []time.Duration{4, 8, 16, 32, 64, 128, 256, 512, 720, 720}
+	for i, hours := range durations {
 		var fresh bool
 		ep, fresh = p.Next(ep, now, now, now, now.Add(time.Hour))
 		require.True(t, fresh, "step %d", i)
-		require.Equal(t, min(i, 5), ep.Tier)
-		require.Equal(t, p.Durations[min(i, 5)], ep.Until.Sub(now))
+		require.Equal(t, min(i, 8), ep.Tier)
+		require.Equal(t, hours*time.Hour, ep.Until.Sub(now))
 		now = ep.Until.Add(90 * 24 * time.Hour)
 	}
 	p.ResetAfter = 90 * 24 * time.Hour

@@ -4,8 +4,10 @@ import "time"
 
 // Policy counts ban episodes, rather than individual alerts or scenarios.
 type Policy struct {
-	Durations  []time.Duration
-	ResetAfter time.Duration
+	BaseDuration time.Duration
+	Multiplier   int64
+	MaxDuration  time.Duration
+	ResetAfter   time.Duration
 }
 
 type Episode struct {
@@ -27,14 +29,23 @@ func (p Policy) Next(previous Episode, start, stop, created, baseUntil time.Time
 		return previous, false
 	}
 	tier := 0
+	duration := p.BaseDuration
 	quietSince := previous.Until
 	if previous.LastAttack.After(quietSince) {
 		quietSince = previous.LastAttack
 	}
 	if !previous.Until.IsZero() && (p.ResetAfter == 0 || start.Sub(quietSince) < p.ResetAfter) {
-		tier = min(previous.Tier+1, len(p.Durations)-1)
+		for tier <= previous.Tier && duration < p.MaxDuration {
+			// Check before multiplying to avoid overflowing time.Duration.
+			if duration > p.MaxDuration/time.Duration(p.Multiplier) {
+				duration = p.MaxDuration
+			} else {
+				duration *= time.Duration(p.Multiplier)
+			}
+			tier++
+		}
 	}
-	until := created.Add(p.Durations[tier])
+	until := created.Add(duration)
 	if baseUntil.After(until) {
 		until = baseUntil
 	}

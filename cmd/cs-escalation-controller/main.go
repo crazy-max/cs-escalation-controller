@@ -82,8 +82,10 @@ func run() error {
 		API:   api,
 		Store: store,
 		Policy: controller.Policy{
-			Durations:  cfg.Durations,
-			ResetAfter: cfg.ResetAfter,
+			BaseDuration: cfg.Escalation.BaseDuration,
+			Multiplier:   cfg.Escalation.Multiplier,
+			MaxDuration:  cfg.Escalation.MaxDuration,
+			ResetAfter:   cfg.ResetAfter,
 		},
 		ExcludeScenarios: cfg.ExcludeScenarios,
 		Log:              log.Logger,

@@ -392,8 +392,10 @@ func setup(t *testing.T, dry bool) (*Controller, *fakeAPI, string) {
 		Store: s,
 		API:   f,
 		Policy: Policy{
-			Durations:  []time.Duration{4 * time.Hour, 8 * time.Hour, 12 * time.Hour},
-			ResetAfter: 720 * time.Hour,
+			BaseDuration: 4 * time.Hour,
+			Multiplier:   2,
+			MaxDuration:  720 * time.Hour,
+			ResetAfter:   720 * time.Hour,
 		},
 		Log: zerolog.Nop(),
 	}
