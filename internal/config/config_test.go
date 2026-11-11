@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,27 +114,27 @@ func TestConfig(t *testing.T) {
 			assert.True(t, cfg.DryRun)
 			assert.Equal(t, "@every 30s", cfg.Schedule)
 			if tc.name == "safe defaults" || tc.name == "partial escalation keeps defaults" {
-				assert.Equal(t, 720*time.Hour, cfg.ResetAfter)
+				assert.Equal(t, 720*time.Hour, time.Duration(cfg.ResetAfter))
 				assert.Equal(t, Escalation{
-					BaseDuration: 4 * time.Hour,
+					BaseDuration: strfmt.Duration(4 * time.Hour),
 					Multiplier:   2,
-					MaxDuration:  720 * time.Hour,
+					MaxDuration:  strfmt.Duration(720 * time.Hour),
 				}, cfg.Escalation)
 			}
 			if tc.name == "custom policy" {
-				assert.Equal(t, 2160*time.Hour, cfg.ResetAfter)
+				assert.Equal(t, 2160*time.Hour, time.Duration(cfg.ResetAfter))
 				assert.Equal(t, Escalation{
-					BaseDuration: time.Hour,
+					BaseDuration: strfmt.Duration(time.Hour),
 					Multiplier:   3,
-					MaxDuration:  2 * time.Hour,
+					MaxDuration:  strfmt.Duration(2 * time.Hour),
 				}, cfg.Escalation)
 			}
 			if tc.name == "disable reset" {
-				assert.Zero(t, cfg.ResetAfter)
+				assert.Zero(t, time.Duration(cfg.ResetAfter))
 			}
 			if tc.name == "maximum equals base" {
-				assert.Equal(t, 4*time.Hour, cfg.Escalation.BaseDuration)
-				assert.Equal(t, cfg.Escalation.BaseDuration, cfg.Escalation.MaxDuration)
+				assert.Equal(t, 4*time.Hour, time.Duration(cfg.Escalation.BaseDuration))
+				assert.Equal(t, time.Duration(cfg.Escalation.BaseDuration), time.Duration(cfg.Escalation.MaxDuration))
 			}
 		})
 	}
@@ -147,6 +148,80 @@ func TestConfigLiteralPassword(t *testing.T) {
 	cfg, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, `${ESC_TEST_PASSWORD} $plain $$literal \new`, cfg.LAPI.Password)
+}
+
+func TestConfigDurations(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		value     string
+		want      time.Duration
+		wantError bool
+	}{
+		{
+			name:  "days",
+			value: "30d",
+			want:  720 * time.Hour,
+		},
+		{
+			name:  "weeks",
+			value: "2w",
+			want:  14 * 24 * time.Hour,
+		},
+		{
+			name:  "combined units",
+			value: "1w2d12h",
+			want:  228 * time.Hour,
+		},
+		{
+			name:  "fractional days",
+			value: "1.5d",
+			want:  36 * time.Hour,
+		},
+		{
+			name:      "nonzero duration requires a unit",
+			value:     "3600000000000",
+			wantError: true,
+		},
+		{
+			name:      "invalid unit",
+			value:     "1mo",
+			wantError: true,
+		},
+		{
+			name:      "overflow",
+			value:     "999999999999999999d",
+			wantError: true,
+		},
+		{
+			name:      "negative days",
+			value:     "-1d",
+			wantError: true,
+		},
+	} {
+		for _, source := range []string{"file", "environment"} {
+			t.Run(tc.name+"/"+source, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "config.yaml")
+				data := "lapi:\n  url: http://crowdsec:8080\n  username: test\n  password: test\n"
+				if source == "file" {
+					data += "resetAfter: " + tc.value + "\nescalation:\n  baseDuration: " + tc.value + "\n  maxDuration: " + tc.value + "\n"
+				} else {
+					t.Setenv("CSEC_ESCALATION_BASEDURATION", tc.value)
+					t.Setenv("CSEC_ESCALATION_MAXDURATION", tc.value)
+					t.Setenv("CSEC_RESETAFTER", tc.value)
+				}
+				require.NoError(t, os.WriteFile(path, []byte(data), 0600))
+				cfg, err := Load(path)
+				if tc.wantError {
+					require.Error(t, err)
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, tc.want, time.Duration(cfg.Escalation.BaseDuration))
+				assert.Equal(t, tc.want, time.Duration(cfg.Escalation.MaxDuration))
+				assert.Equal(t, tc.want, time.Duration(cfg.ResetAfter))
+			})
+		}
+	}
 }
 
 func TestConfigQuotedScalars(t *testing.T) {
@@ -179,11 +254,11 @@ func TestConfigEnvironmentOverrides(t *testing.T) {
 	assert.Equal(t, " secret\\new\n${LITERAL} ", cfg.LAPI.Password)
 	assert.False(t, cfg.DryRun)
 	assert.Equal(t, Escalation{
-		BaseDuration: time.Hour,
+		BaseDuration: strfmt.Duration(time.Hour),
 		Multiplier:   3,
-		MaxDuration:  2 * time.Hour,
+		MaxDuration:  strfmt.Duration(2 * time.Hour),
 	}, cfg.Escalation)
-	assert.Equal(t, 2160*time.Hour, cfg.ResetAfter)
+	assert.Equal(t, 2160*time.Hour, time.Duration(cfg.ResetAfter))
 	assert.Equal(t, []string{"crowdsecurity/http-probing", "crowdsecurity/ssh-bf"}, cfg.ExcludeScenarios)
 }
 
@@ -218,7 +293,7 @@ func TestConfigExample(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "http://crowdsec:8080", cfg.LAPI.URL)
 	assert.Equal(t, "replace-me", cfg.LAPI.Password)
-	assert.Equal(t, 4*time.Hour, cfg.Escalation.BaseDuration)
+	assert.Equal(t, 4*time.Hour, time.Duration(cfg.Escalation.BaseDuration))
 }
 
 func TestConfigSchedules(t *testing.T) {

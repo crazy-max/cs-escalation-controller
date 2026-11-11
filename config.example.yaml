@@ -36,15 +36,16 @@ schedule: "@every 30s"
 # The multiplier is an integer of at least 2.
 # Overlapping alerts share one offense; existing longer bans are never shortened.
 # Defaults: 4h, 8h, 16h, 32h, 64h, 128h, 256h, 512h, then 720h.
-# Go durations use hours: 720h = 30 days.
+# Durations support days (d = 24h) and weeks (w = 7d), e.g. 30d or 1w2d12h.
+# Nonzero durations require a unit, including nanoseconds (e.g. 42ns).
 escalation:
   baseDuration: 4h
   multiplier: 2
-  maxDuration: 720h
+  maxDuration: 30d
 
 # Reset to the first tier after 30 quiet days. Time banned is not quiet time.
 # Set to "0s" to retain repeat-offender history indefinitely.
-resetAfter: 720h
+resetAfter: 30d
 
 # Exact scenario names to exclude from escalation (existing bans remain active).
 excludeScenarios: []
