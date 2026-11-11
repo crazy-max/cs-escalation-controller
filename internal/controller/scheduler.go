@@ -19,7 +19,7 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 	if err != nil {
 		return err
 	}
-	if ctx.Err() != nil {
+	if context.Cause(ctx) != nil {
 		return nil
 	}
 	if c.Stream == nil {
@@ -27,12 +27,12 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 	}
 	var heartbeating atomic.Bool
 	heartbeat := cron.FuncJob(func() {
-		if ctx.Err() != nil || !heartbeating.CompareAndSwap(false, true) {
+		if context.Cause(ctx) != nil || !heartbeating.CompareAndSwap(false, true) {
 			return
 		}
 		defer heartbeating.Store(false)
 		if err := c.API.Heartbeat(ctx); err != nil {
-			if ctx.Err() == nil {
+			if context.Cause(ctx) == nil {
 				c.Log.Error().Err(err).Msg("heartbeat failed")
 			}
 			return
@@ -44,7 +44,7 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 	// may have advanced LAPI's cursor, so recover with a fresh snapshot.
 	resync := true
 	job := cron.FuncJob(func() {
-		if ctx.Err() != nil {
+		if context.Cause(ctx) != nil {
 			return
 		}
 		if !running.CompareAndSwap(false, true) {
@@ -55,7 +55,7 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 		changes, err := c.Stream.Decisions(ctx, resync)
 		if err != nil {
 			resync = true
-			if ctx.Err() == nil {
+			if context.Cause(ctx) == nil {
 				c.Log.Error().Err(err).Msg("decisions stream failed")
 			}
 			return
@@ -67,7 +67,7 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 		}
 		if err := c.Reconcile(ctx); err != nil {
 			resync = true
-			if ctx.Err() == nil {
+			if context.Cause(ctx) == nil {
 				c.Log.Error().Err(err).Msg("reconcile failed")
 			}
 			return
@@ -78,7 +78,7 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 	jobID := scheduler.Schedule(parsed, job)
 	scheduler.Schedule(cron.Every(time.Minute), heartbeat)
 	heartbeat.Run()
-	if ctx.Err() != nil {
+	if context.Cause(ctx) != nil {
 		return nil
 	}
 	scheduler.Start()

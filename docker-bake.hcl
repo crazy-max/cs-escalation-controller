@@ -6,6 +6,10 @@ variable "DESTDIR" {
   default = "./bin"
 }
 
+variable "GOLANGCI_LINT_MULTIPLATFORM" {
+  default = null
+}
+
 # GITHUB_REF is the actual ref that triggers the workflow and used as version
 # when tag is pushed! https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
 variable "GITHUB_REF" {
@@ -101,9 +105,34 @@ target "vendor" {
   output = ["."]
 }
 
+group "validate" {
+  targets = ["lint", "vendor-validate"]
+}
+
 target "vendor-validate" {
   inherits = ["_common"]
   dockerfile = "./hack/vendor.Dockerfile"
   target = "validate"
   output = ["type=cacheonly"]
+}
+
+target "lint" {
+  inherits = ["_common"]
+  dockerfile = "./hack/lint.Dockerfile"
+  target = "lint"
+  output = ["type=cacheonly"]
+  platforms = GOLANGCI_LINT_MULTIPLATFORM != null ? [
+    "darwin/amd64",
+    "darwin/arm64",
+    "freebsd/amd64",
+    "netbsd/amd64",
+    "openbsd/amd64",
+    "linux/amd64",
+    "linux/arm64",
+    "linux/ppc64le",
+    "linux/riscv64",
+    "linux/s390x",
+    "windows/amd64",
+    "windows/arm64"
+  ] : []
 }

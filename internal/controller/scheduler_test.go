@@ -33,8 +33,8 @@ func emptyStream(context.Context, bool) (*models.DecisionsStreamResponse, error)
 func TestStreamTriggersAndRecovery(t *testing.T) {
 	c, _, _ := setup(t, true)
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
+		ctx, cancel := context.WithCancelCause(t.Context())
+		defer cancel(nil)
 		var queries atomic.Int32
 		var pulls atomic.Int32
 		local := testAlert(1, time.Now()).Decisions[0]
@@ -73,7 +73,7 @@ func TestStreamTriggersAndRecovery(t *testing.T) {
 			synctest.Wait()
 			assert.Equal(t, want, queries.Load())
 		}
-		cancel()
+		cancel(nil)
 		require.NoError(t, <-done)
 	})
 }
@@ -91,8 +91,8 @@ func (a schedulerAPI) Alerts(ctx context.Context) ([]*models.Alert, time.Time, e
 
 func TestSchedulerRetriesOnSchedule(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
+		ctx, cancel := context.WithCancelCause(t.Context())
+		defer cancel(nil)
 		var calls atomic.Int32
 		c := Controller{
 			API: schedulerAPI{
@@ -111,7 +111,7 @@ func TestSchedulerRetriesOnSchedule(t *testing.T) {
 		time.Sleep(30 * time.Second)
 		synctest.Wait()
 		assert.EqualValues(t, 2, calls.Load())
-		cancel()
+		cancel(nil)
 		require.NoError(t, <-done)
 		time.Sleep(time.Minute)
 		assert.EqualValues(t, 2, calls.Load())
@@ -120,8 +120,8 @@ func TestSchedulerRetriesOnSchedule(t *testing.T) {
 
 func TestSchedulerSkipsOverlapAndWaitsForShutdown(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
+		ctx, cancel := context.WithCancelCause(t.Context())
+		defer cancel(nil)
 		var calls atomic.Int32
 		release := make(chan struct{})
 		c := Controller{
@@ -144,7 +144,7 @@ func TestSchedulerSkipsOverlapAndWaitsForShutdown(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		synctest.Wait()
 		assert.EqualValues(t, 2, calls.Load())
-		cancel()
+		cancel(nil)
 		synctest.Wait()
 		assert.Empty(t, done, "Start must wait for the active job")
 		close(release)
@@ -153,8 +153,8 @@ func TestSchedulerSkipsOverlapAndWaitsForShutdown(t *testing.T) {
 }
 
 func TestSchedulerCanceledBeforeStartup(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
+	ctx, cancel := context.WithCancelCause(t.Context())
+	cancel(nil)
 	c := Controller{Log: zerolog.Nop()}
 	require.NoError(t, c.Start(ctx, "* * * * * *"))
 }
@@ -170,8 +170,8 @@ func TestSchedulerRejectsInvalidScheduleBeforeReconcile(t *testing.T) {
 
 func TestHeartbeatContinuesDuringReconcileAndWaitsForShutdown(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
+		ctx, cancel := context.WithCancelCause(t.Context())
+		defer cancel(nil)
 		var heartbeats atomic.Int32
 		var queries atomic.Int32
 		release := make(chan struct{})
@@ -183,12 +183,12 @@ func TestHeartbeatContinuesDuringReconcileAndWaitsForShutdown(t *testing.T) {
 					}
 					<-ctx.Done()
 					<-release
-					return ctx.Err()
+					return context.Cause(ctx)
 				},
 				list: func(ctx context.Context) ([]*models.Alert, time.Time, error) {
 					queries.Add(1)
 					<-ctx.Done()
-					return nil, time.Time{}, ctx.Err()
+					return nil, time.Time{}, context.Cause(ctx)
 				},
 			},
 			Stream: streamFunc(emptyStream),
@@ -207,7 +207,7 @@ func TestHeartbeatContinuesDuringReconcileAndWaitsForShutdown(t *testing.T) {
 		synctest.Wait()
 		assert.EqualValues(t, 2, heartbeats.Load(), "heartbeats must not overlap")
 
-		cancel()
+		cancel(nil)
 		synctest.Wait()
 		assert.Empty(t, done, "shutdown must wait for the active heartbeat")
 		close(release)
