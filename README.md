@@ -1,4 +1,8 @@
-# CrowdSec Escalation Controller
+<p align="center">
+  <a href="https://github.com/crazy-max/cs-escalation-controller" target="_blank">
+    <img height="128" src=".github/cs-escalation-controller.png" alt="CrowdSec Escalation Controller">
+  </a>
+</p>
 
 <p align="center">
   <a href="https://github.com/crazy-max/cs-escalation-controller/releases/latest"><img src="https://img.shields.io/github/release/crazy-max/cs-escalation-controller.svg?style=flat-square" alt="GitHub release"></a>
