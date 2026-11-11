@@ -93,3 +93,17 @@ target "image-all" {
     "linux/s390x"
   ]
 }
+
+target "vendor" {
+  inherits = ["_common"]
+  dockerfile = "./hack/vendor.Dockerfile"
+  target = "update"
+  output = ["."]
+}
+
+target "vendor-validate" {
+  inherits = ["_common"]
+  dockerfile = "./hack/vendor.Dockerfile"
+  target = "validate"
+  output = ["type=cacheonly"]
+}

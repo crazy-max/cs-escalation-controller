@@ -1,0 +1,229 @@
+# github.com/BurntSushi/toml v1.6.0
+## explicit; go 1.18
+github.com/BurntSushi/toml
+github.com/BurntSushi/toml/internal
+# github.com/alecthomas/kong v1.17.0
+## explicit; go 1.20
+github.com/alecthomas/kong
+# github.com/cenkalti/backoff/v5 v5.0.3
+## explicit; go 1.23
+github.com/cenkalti/backoff/v5
+# github.com/crazy-max/cron/v3 v3.1.1
+## explicit; go 1.12
+github.com/crazy-max/cron/v3
+# github.com/crazy-max/gonfig v0.9.0
+## explicit; go 1.25.0
+github.com/crazy-max/gonfig
+github.com/crazy-max/gonfig/env
+github.com/crazy-max/gonfig/file
+github.com/crazy-max/gonfig/flag
+github.com/crazy-max/gonfig/parser
+github.com/crazy-max/gonfig/types
+# github.com/crowdsecurity/crowdsec v1.8.2
+## explicit; go 1.27.1
+github.com/crowdsecurity/crowdsec/pkg/apiclient
+github.com/crowdsecurity/crowdsec/pkg/apiclient/useragent
+github.com/crowdsecurity/crowdsec/pkg/fflag
+github.com/crowdsecurity/crowdsec/pkg/models
+github.com/crowdsecurity/crowdsec/pkg/modelscapi
+github.com/crowdsecurity/crowdsec/pkg/types
+# github.com/crowdsecurity/go-cs-lib v0.0.25
+## explicit; go 1.25
+github.com/crowdsecurity/go-cs-lib/cstime
+github.com/crowdsecurity/go-cs-lib/ptr
+github.com/crowdsecurity/go-cs-lib/trace
+github.com/crowdsecurity/go-cs-lib/version
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+## explicit
+github.com/davecgh/go-spew/spew
+# github.com/ebitengine/purego v0.11.1
+## explicit; go 1.25.0
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
+# github.com/go-ole/go-ole v1.3.0
+## explicit; go 1.12
+github.com/go-ole/go-ole
+github.com/go-ole/go-ole/oleutil
+# github.com/go-openapi/analysis v1.0.0
+## explicit; go 1.26.0
+github.com/go-openapi/analysis
+github.com/go-openapi/analysis/internal/debug
+github.com/go-openapi/analysis/internal/flatten/normalize
+github.com/go-openapi/analysis/internal/flatten/operations
+github.com/go-openapi/analysis/internal/flatten/replace
+github.com/go-openapi/analysis/internal/flatten/schutils
+github.com/go-openapi/analysis/internal/flatten/sortref
+# github.com/go-openapi/errors v0.22.9
+## explicit; go 1.26.0
+github.com/go-openapi/errors
+# github.com/go-openapi/jsonpointer v1.0.1
+## explicit; go 1.26.0
+github.com/go-openapi/jsonpointer
+github.com/go-openapi/jsonpointer/jsonname
+# github.com/go-openapi/jsonreference v1.0.1
+## explicit; go 1.25.0
+github.com/go-openapi/jsonreference
+github.com/go-openapi/jsonreference/internal
+# github.com/go-openapi/loads v0.25.2
+## explicit; go 1.25.0
+github.com/go-openapi/loads
+# github.com/go-openapi/spec v1.0.0
+## explicit; go 1.25.0
+github.com/go-openapi/spec
+# github.com/go-openapi/strfmt v0.27.4
+## explicit; go 1.26.0
+github.com/go-openapi/strfmt
+github.com/go-openapi/strfmt/internal/bsonlite
+github.com/go-openapi/strfmt/internal/countries
+# github.com/go-openapi/swag v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag
+# github.com/go-openapi/swag/cmdutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/cmdutils
+# github.com/go-openapi/swag/conv v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/conv
+# github.com/go-openapi/swag/fileutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/fileutils
+# github.com/go-openapi/swag/jsonutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/jsonutils
+github.com/go-openapi/swag/jsonutils/adapters
+github.com/go-openapi/swag/jsonutils/adapters/ifaces
+github.com/go-openapi/swag/jsonutils/adapters/stdlib/json
+# github.com/go-openapi/swag/loading v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/loading
+# github.com/go-openapi/swag/mangling v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/mangling
+# github.com/go-openapi/swag/netutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/netutils
+# github.com/go-openapi/swag/pools v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/pools
+# github.com/go-openapi/swag/stringutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/stringutils
+# github.com/go-openapi/swag/typeutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/typeutils
+# github.com/go-openapi/swag/yamlutils v0.29.2
+## explicit; go 1.26.0
+github.com/go-openapi/swag/yamlutils
+# github.com/go-openapi/validate v1.0.0
+## explicit; go 1.26.0
+github.com/go-openapi/validate
+# github.com/go-viper/mapstructure/v2 v2.5.0
+## explicit; go 1.18
+github.com/go-viper/mapstructure/v2
+github.com/go-viper/mapstructure/v2/internal/errors
+# github.com/goccy/go-yaml v1.19.2
+## explicit; go 1.21.0
+github.com/goccy/go-yaml
+github.com/goccy/go-yaml/ast
+github.com/goccy/go-yaml/internal/errors
+github.com/goccy/go-yaml/internal/format
+github.com/goccy/go-yaml/lexer
+github.com/goccy/go-yaml/parser
+github.com/goccy/go-yaml/printer
+github.com/goccy/go-yaml/scanner
+github.com/goccy/go-yaml/token
+# github.com/golang-jwt/jwt/v4 v4.5.2
+## explicit; go 1.16
+github.com/golang-jwt/jwt/v4
+# github.com/google/go-querystring v1.2.0
+## explicit; go 1.13
+github.com/google/go-querystring/query
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
+# github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e
+## explicit; go 1.21
+github.com/lufia/plan9stats
+# github.com/mattn/go-colorable v0.1.16
+## explicit; go 1.18
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.24
+## explicit; go 1.20
+github.com/mattn/go-isatty
+# github.com/oklog/ulid/v2 v2.1.2
+## explicit; go 1.15
+github.com/oklog/ulid/v2
+# github.com/pkg/errors v0.9.1
+## explicit
+github.com/pkg/errors
+# github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6
+## explicit; go 1.14
+github.com/power-devops/perfstat
+# github.com/rs/zerolog v1.35.1
+## explicit; go 1.23
+github.com/rs/zerolog
+github.com/rs/zerolog/internal/cbor
+github.com/rs/zerolog/internal/json
+github.com/rs/zerolog/log
+github.com/rs/zerolog/pkgerrors
+# github.com/shirou/gopsutil/v4 v4.26.9
+## explicit; go 1.26.0
+github.com/shirou/gopsutil/v4/common
+github.com/shirou/gopsutil/v4/cpu
+github.com/shirou/gopsutil/v4/host
+github.com/shirou/gopsutil/v4/internal/common
+github.com/shirou/gopsutil/v4/mem
+github.com/shirou/gopsutil/v4/net
+github.com/shirou/gopsutil/v4/process
+# github.com/sirupsen/logrus v1.10.2
+## explicit; go 1.23
+github.com/sirupsen/logrus
+# github.com/stretchr/testify v1.12.1
+## explicit; go 1.17
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/internal/difflib
+github.com/stretchr/testify/internal/spew
+github.com/stretchr/testify/require
+# github.com/tklauser/go-sysconf v0.4.0
+## explicit; go 1.25.0
+github.com/tklauser/go-sysconf
+# github.com/tklauser/numcpus v0.12.0
+## explicit; go 1.25.0
+github.com/tklauser/numcpus
+# github.com/yusufpapurcu/wmi v1.2.4
+## explicit; go 1.16
+github.com/yusufpapurcu/wmi
+# go.etcd.io/bbolt v1.5.0
+## explicit; go 1.25.0
+go.etcd.io/bbolt
+go.etcd.io/bbolt/errors
+go.etcd.io/bbolt/internal/common
+go.etcd.io/bbolt/internal/freelist
+# go.yaml.in/yaml/v3 v3.0.6
+## explicit; go 1.16
+go.yaml.in/yaml/v3
+# golang.org/x/net v0.62.0
+## explicit; go 1.26.0
+golang.org/x/net/idna
+# golang.org/x/sys v0.50.0
+## explicit; go 1.26.0
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
+# golang.org/x/text v0.44.0
+## explicit; go 1.26.0
+golang.org/x/text/currency
+golang.org/x/text/internal/format
+golang.org/x/text/internal/language
+golang.org/x/text/internal/language/compact
+golang.org/x/text/internal/number
+golang.org/x/text/internal/stringset
+golang.org/x/text/internal/tag
+golang.org/x/text/language
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
