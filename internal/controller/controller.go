@@ -26,6 +26,7 @@ type API interface {
 
 type Controller struct {
 	API              API
+	Stream           DecisionStream
 	Store            *Store
 	Policy           Policy
 	ExcludeScenarios []string
@@ -167,7 +168,7 @@ func (c *Controller) qualifying(a *models.Alert, now time.Time) (string, time.Ti
 	ip = ip.Unmap()
 	var until time.Time
 	for _, d := range a.Decisions {
-		if value(d.Origin) != "crowdsec" || value(d.Type) != types.DecisionTypeBan || value(d.Simulated) || !strings.EqualFold(value(d.Scope), types.Ip) {
+		if !isLocalIPBan(d) {
 			continue
 		}
 		dip, err := netip.ParseAddr(value(d.Value))
@@ -226,4 +227,12 @@ func (c *Controller) reconcileOperation(ctx context.Context, op Operation) error
 	}
 	c.Log.Info().Str("ip", op.IP).Int("tier", op.Tier+1).Time("until", op.Until).Msg("ban extended")
 	return finish()
+}
+
+func (c *Controller) relevantDecision(d *models.Decision) bool {
+	return isLocalIPBan(d) && !slices.Contains(c.ExcludeScenarios, value(d.Scenario))
+}
+
+func isLocalIPBan(d *models.Decision) bool {
+	return value(d.Origin) == types.CrowdSecOrigin && value(d.Type) == types.DecisionTypeBan && strings.EqualFold(value(d.Scope), types.Ip) && !value(d.Simulated)
 }

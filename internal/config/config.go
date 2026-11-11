@@ -2,7 +2,6 @@ package config
 
 import (
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -23,10 +22,12 @@ type Config struct {
 }
 
 type LAPI struct {
-	URL          string `yaml:"url"`
-	Username     string `yaml:"username"`
-	Password     string `yaml:"password"`
-	PasswordFile string `yaml:"passwordFile"`
+	URL               string `yaml:"url"`
+	Username          string `yaml:"username"`
+	Password          string `yaml:"password"`
+	PasswordFile      string `yaml:"passwordFile"`
+	BouncerAPIKey     string `yaml:"bouncerAPIKey"`
+	BouncerAPIKeyFile string `yaml:"bouncerAPIKeyFile"`
 }
 
 func Load(path string) (Config, error) {
@@ -84,8 +85,14 @@ func (c Config) Validate() error {
 	if c.LAPI.Username == "" || c.Database == "" {
 		return errors.New("lapi.username and database are required")
 	}
-	if (c.LAPI.Password == "") == (c.LAPI.PasswordFile == "") {
-		return errors.New("set exactly one of lapi.password or lapi.passwordFile")
+	if c.LAPI.Password == "" && c.LAPI.PasswordFile == "" {
+		return errors.New("lapi.password or lapi.passwordFile is required")
+	}
+	if c.LAPI.Password != "" && c.LAPI.PasswordFile != "" {
+		return errors.New("lapi.password and lapi.passwordFile are mutually exclusive")
+	}
+	if c.LAPI.BouncerAPIKey != "" && c.LAPI.BouncerAPIKeyFile != "" {
+		return errors.New("lapi.bouncerAPIKey and lapi.bouncerAPIKeyFile are mutually exclusive")
 	}
 	if _, err := ParseSchedule(c.Schedule); err != nil {
 		return err
@@ -102,22 +109,6 @@ func (c Config) Validate() error {
 		return errors.New("durations cannot be empty")
 	}
 	return nil
-}
-
-// ResolvePassword reads credentials from a validated configuration.
-func (c LAPI) ResolvePassword() (string, error) {
-	password := c.Password
-	if c.PasswordFile != "" {
-		data, err := os.ReadFile(c.PasswordFile)
-		if err != nil {
-			return "", errors.Wrap(err, "read password file")
-		}
-		password = string(data)
-	}
-	if password == "" {
-		return "", errors.New("password is empty")
-	}
-	return password, nil
 }
 
 // ParseSchedule accepts cron expressions with optional seconds and descriptors.

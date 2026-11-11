@@ -6,9 +6,17 @@ lapi:
   url: http://crowdsec:8080
   username: cs-escalation-controller
   # Quote passwords to preserve their spelling. Values are not interpolated.
+  # Alternatively, set CSEC_LAPI_PASSWORD in the container environment.
   password: "replace-me"
   # Alternatively, remove password and read it from a file.
   # passwordFile: /run/secrets/crowdsec_password
+
+  # Dedicated bouncer key for this controller.
+  # Alternatively, set CSEC_LAPI_BOUNCERAPIKEY in the container environment.
+  # Required in scheduled mode; --once uses only machine credentials.
+  bouncerAPIKey: "replace-me"
+  # Alternatively, remove bouncerAPIKey and read it from a file.
+  # bouncerAPIKeyFile: /run/secrets/crowdsec_bouncer_key
 
 # Persistent per-IP history. Use a separate database for each LAPI and mode.
 database: data/state.db
@@ -17,7 +25,9 @@ database: data/state.db
 # Switching to false requires a separate database from the dry-run database.
 dryRun: true
 
-# Reconcile immediately at startup, then on this schedule. Overlaps are skipped.
+# Synchronize at startup, then check the decisions stream on this schedule.
+# Relevant changes trigger an active local ban alert fetch; idle checks do not.
+# Failed cycles resynchronize on the next check. Overlaps are skipped.
 # Supports five cron fields, an optional seconds field, and descriptors.
 # Examples: "*/30 * * * * *", "*/5 * * * *", "CRON_TZ=UTC 0 * * * *".
 schedule: "@every 30s"

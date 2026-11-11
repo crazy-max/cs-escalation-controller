@@ -12,6 +12,8 @@ import (
 	"github.com/crazy-max/cs-escalation-controller/internal/config"
 	"github.com/crazy-max/cs-escalation-controller/internal/controller"
 	"github.com/crazy-max/cs-escalation-controller/internal/logging"
+	"github.com/crazy-max/cs-escalation-controller/internal/secret"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -57,9 +59,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	lapiPassword, err := cfg.LAPI.ResolvePassword()
+	lapiPassword, err := secret.GetSecret(cfg.LAPI.Password, cfg.LAPI.PasswordFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "read LAPI password")
+	}
+	if lapiPassword == "" {
+		return errors.New("LAPI password is empty")
 	}
 
 	api, err := controller.NewClient(cfg.LAPI.URL, cfg.LAPI.Username, lapiPassword, meta.UserAgent)
@@ -89,5 +94,16 @@ func run() error {
 	if cli.Once {
 		return c.Reconcile(ctx)
 	}
+
+	bouncerAPIKey, err := secret.GetSecret(cfg.LAPI.BouncerAPIKey, cfg.LAPI.BouncerAPIKeyFile)
+	if err != nil {
+		return errors.Wrap(err, "read bouncer API key")
+	}
+
+	c.Stream, err = controller.NewStreamClient(cfg.LAPI.URL, bouncerAPIKey, meta.UserAgent)
+	if err != nil {
+		return err
+	}
+
 	return c.Start(ctx, cfg.Schedule)
 }

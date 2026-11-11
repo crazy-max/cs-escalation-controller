@@ -20,6 +20,64 @@ type schedulerAPI struct {
 	heartbeat func(context.Context) error
 }
 
+type streamFunc func(context.Context, bool) (*models.DecisionsStreamResponse, error)
+
+func (f streamFunc) Decisions(ctx context.Context, startup bool) (*models.DecisionsStreamResponse, error) {
+	return f(ctx, startup)
+}
+
+func emptyStream(context.Context, bool) (*models.DecisionsStreamResponse, error) {
+	return &models.DecisionsStreamResponse{}, nil
+}
+
+func TestStreamTriggersAndRecovery(t *testing.T) {
+	c, _, _ := setup(t, true)
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		var queries atomic.Int32
+		var pulls atomic.Int32
+		local := testAlert(1, time.Now()).Decisions[0]
+		own := *local
+		own.Origin = new(Origin)
+		c.API = schedulerAPI{
+			list: func(context.Context) ([]*models.Alert, time.Time, error) {
+				if queries.Add(1) == 5 {
+					return nil, time.Time{}, errors.New("alert query failed")
+				}
+				return nil, time.Now(), nil
+			},
+		}
+		c.Stream = streamFunc(func(_ context.Context, startup bool) (*models.DecisionsStreamResponse, error) {
+			n := pulls.Add(1)
+			assert.Equal(t, n == 1 || n == 7 || n == 9, startup)
+			switch n {
+			case 3:
+				return &models.DecisionsStreamResponse{New: []*models.Decision{&own}}, nil
+			case 4, 8:
+				return &models.DecisionsStreamResponse{New: []*models.Decision{local, local}}, nil
+			case 5:
+				return &models.DecisionsStreamResponse{Deleted: []*models.Decision{local}}, nil
+			case 6:
+				return nil, errors.New("stream response lost")
+			default:
+				return &models.DecisionsStreamResponse{}, nil
+			}
+		})
+		done := make(chan error, 1)
+		go func() { done <- c.Start(ctx, "@every 30s") }()
+		synctest.Wait()
+		assert.EqualValues(t, 1, queries.Load(), "startup must synchronize even with an empty stream")
+		for _, want := range []int32{1, 1, 2, 3, 3, 4, 5, 6} {
+			time.Sleep(30 * time.Second)
+			synctest.Wait()
+			assert.Equal(t, want, queries.Load())
+		}
+		cancel()
+		require.NoError(t, <-done)
+	})
+}
+
 func (a schedulerAPI) Heartbeat(ctx context.Context) error {
 	if a.heartbeat != nil {
 		return a.heartbeat(ctx)
@@ -43,7 +101,8 @@ func TestSchedulerRetriesOnSchedule(t *testing.T) {
 					return nil, time.Time{}, errors.New("LAPI unavailable")
 				},
 			},
-			Log: zerolog.Nop(),
+			Stream: streamFunc(emptyStream),
+			Log:    zerolog.Nop(),
 		}
 		done := make(chan error, 1)
 		go func() { done <- c.Start(ctx, "@every 30s") }()
@@ -76,7 +135,8 @@ func TestSchedulerSkipsOverlapAndWaitsForShutdown(t *testing.T) {
 					return nil, time.Time{}, errors.New("LAPI unavailable")
 				},
 			},
-			Log: zerolog.Nop(),
+			Stream: streamFunc(emptyStream),
+			Log:    zerolog.Nop(),
 		}
 		done := make(chan error, 1)
 		go func() { done <- c.Start(ctx, "* * * * * *") }()
@@ -131,7 +191,8 @@ func TestHeartbeatContinuesDuringReconcileAndWaitsForShutdown(t *testing.T) {
 					return nil, time.Time{}, ctx.Err()
 				},
 			},
-			Log: zerolog.Nop(),
+			Stream: streamFunc(emptyStream),
+			Log:    zerolog.Nop(),
 		}
 		done := make(chan error, 1)
 		go func() { done <- c.Start(ctx, "@every 1h") }()

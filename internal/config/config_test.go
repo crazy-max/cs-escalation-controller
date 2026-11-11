@@ -205,74 +205,16 @@ func TestConfigSchedules(t *testing.T) {
 	}
 }
 
-func TestResolvePassword(t *testing.T) {
-	cases := []struct {
-		name      string
-		password  string
-		fromFile  bool
-		want      string
-		wantError bool
-	}{
-		{
-			name:     "direct value preserved",
-			password: " secret$VALUE\r\n",
-			want:     " secret$VALUE\r\n",
-		},
-		{
-			name:     "file without newline",
-			password: "secret",
-			fromFile: true,
-			want:     "secret",
-		},
-		{
-			name:     "file contents preserved",
-			password: " secret$VALUE \r\n\n",
-			fromFile: true,
-			want:     " secret$VALUE \r\n\n",
-		},
-		{
-			name:      "empty direct value",
-			wantError: true,
-		},
-		{
-			name:      "empty file",
-			fromFile:  true,
-			wantError: true,
-		},
-		{
-			name:     "newline-only file preserved",
-			password: "\r\n",
-			fromFile: true,
-			want:     "\r\n",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := LAPI{}
-			if tc.fromFile {
-				cfg.PasswordFile = filepath.Join(t.TempDir(), "password")
-				require.NoError(t, os.WriteFile(cfg.PasswordFile, []byte(tc.password), 0600))
-			} else {
-				cfg.Password = tc.password
-			}
-			password, err := cfg.ResolvePassword()
-			if tc.wantError {
-				require.EqualError(t, err, "password is empty")
-				assert.Empty(t, password)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, password)
-		})
-	}
-}
+func TestStreamCredentials(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("lapi:\n  url: http://localhost:8080\n  username: test\n  password: test\n  bouncerAPIKey: file-key\n"), 0600))
+	t.Setenv("CSEC_LAPI_BOUNCERAPIKEY", "environment-key")
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	assert.Equal(t, "environment-key", cfg.LAPI.BouncerAPIKey)
 
-func TestResolvePasswordMissingFile(t *testing.T) {
-	cfg := LAPI{
-		PasswordFile: filepath.Join(t.TempDir(), "missing"),
-	}
-	password, err := cfg.ResolvePassword()
-	require.ErrorIs(t, err, os.ErrNotExist)
-	assert.ErrorContains(t, err, "read password file")
-	assert.Empty(t, password)
+	cfg.LAPI.BouncerAPIKeyFile = filepath.Join(t.TempDir(), "api-key")
+	require.ErrorContains(t, cfg.Validate(), "are mutually exclusive")
+	cfg.LAPI.BouncerAPIKey = ""
+	require.NoError(t, cfg.Validate())
 }

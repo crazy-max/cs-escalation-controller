@@ -59,7 +59,7 @@ func (c *Client) Alerts(ctx context.Context) ([]*models.Alert, time.Time, error)
 		Limit:                new(0), // LAPI paginates internally; zero requests all matching alerts.
 		ActiveDecisionEquals: new(true),
 		TypeEquals:           types.DecisionTypeBan,
-		OriginEquals:         "crowdsec",
+		OriginEquals:         types.CrowdSecOrigin,
 		IncludeCAPI:          new(false),
 		IncludeSimulated:     new(false),
 	})

@@ -2,14 +2,16 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"time"
 
 	"github.com/crazy-max/cron/v3"
 	"github.com/crazy-max/cs-escalation-controller/internal/config"
+	"github.com/pkg/errors"
 )
 
-// Start reconciles immediately, then on a schedule until ctx is canceled.
+// Start synchronizes active alerts, then checks decision changes on a schedule.
 // It sends heartbeats independently every minute and waits for active jobs
 // to finish before returning.
 func (c *Controller) Start(ctx context.Context, schedule string) error {
@@ -19,6 +21,9 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 	}
 	if ctx.Err() != nil {
 		return nil
+	}
+	if c.Stream == nil {
+		return errors.New("decisions stream is required")
 	}
 	var heartbeating atomic.Bool
 	heartbeat := cron.FuncJob(func() {
@@ -35,6 +40,9 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 		c.Log.Debug().Msg("heartbeat sent")
 	})
 	var running atomic.Bool
+	// Only the non-overlapping job accesses resync. A failed stream response
+	// may have advanced LAPI's cursor, so recover with a fresh snapshot.
+	resync := true
 	job := cron.FuncJob(func() {
 		if ctx.Err() != nil {
 			return
@@ -44,9 +52,27 @@ func (c *Controller) Start(ctx context.Context, schedule string) error {
 			return
 		}
 		defer running.Store(false)
-		if err := c.Reconcile(ctx); err != nil && ctx.Err() == nil {
-			c.Log.Error().Err(err).Msg("reconcile failed")
+		changes, err := c.Stream.Decisions(ctx, resync)
+		if err != nil {
+			resync = true
+			if ctx.Err() == nil {
+				c.Log.Error().Err(err).Msg("decisions stream failed")
+			}
+			return
 		}
+		c.Log.Debug().Bool("resync", resync).Int("new", len(changes.New)).Int("deleted", len(changes.Deleted)).Msg("decision changes fetched")
+		if !resync && !slices.ContainsFunc(changes.New, c.relevantDecision) && !slices.ContainsFunc(changes.Deleted, c.relevantDecision) {
+			c.Log.Debug().Msg("no relevant decision changes")
+			return
+		}
+		if err := c.Reconcile(ctx); err != nil {
+			resync = true
+			if ctx.Err() == nil {
+				c.Log.Error().Err(err).Msg("reconcile failed")
+			}
+			return
+		}
+		resync = false
 	})
 	scheduler := cron.New()
 	jobID := scheduler.Schedule(parsed, job)
