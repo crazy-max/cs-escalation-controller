@@ -21,19 +21,43 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:  "custom policy",
-			extra: "resetAfter: 2160h\ndurations: [1h, 2h]\n",
+			extra: "resetAfter: 2160h\nescalation:\n  baseDuration: 1h\n  multiplier: 3\n  maxDuration: 2h\n",
 		},
 		{
 			name:  "disable reset",
 			extra: "resetAfter: '0'\n",
 		},
 		{
-			name:  "empty ladder keeps defaults",
-			extra: "durations: []\n",
+			name:  "partial escalation keeps defaults",
+			extra: "escalation:\n  multiplier: 2\n",
 		},
 		{
-			name:      "descending ladder",
-			extra:     "durations: [8h, 4h]\n",
+			name:      "maximum below base",
+			extra:     "escalation:\n  maxDuration: 1h\n",
+			wantError: true,
+		},
+		{
+			name:  "maximum equals base",
+			extra: "escalation:\n  baseDuration: 4h\n  maxDuration: 4h\n",
+		},
+		{
+			name:      "zero base",
+			extra:     "escalation:\n  baseDuration: 0s\n",
+			wantError: true,
+		},
+		{
+			name:      "negative base",
+			extra:     "escalation:\n  baseDuration: -1h\n",
+			wantError: true,
+		},
+		{
+			name:      "non-growing multiplier",
+			extra:     "escalation:\n  multiplier: 1\n",
+			wantError: true,
+		},
+		{
+			name:      "fractional multiplier",
+			extra:     "escalation:\n  multiplier: 1.5\n",
 			wantError: true,
 		},
 		{
@@ -43,7 +67,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:      "invalid duration",
-			extra:     "durations: [4h, tomorrow]\n",
+			extra:     "escalation:\n  baseDuration: tomorrow\n",
 			wantError: true,
 		},
 		{
@@ -88,23 +112,28 @@ func TestConfig(t *testing.T) {
 			require.NoError(t, err)
 			assert.True(t, cfg.DryRun)
 			assert.Equal(t, "@every 30s", cfg.Schedule)
-			if tc.name == "safe defaults" || tc.name == "empty ladder keeps defaults" {
+			if tc.name == "safe defaults" || tc.name == "partial escalation keeps defaults" {
 				assert.Equal(t, 720*time.Hour, cfg.ResetAfter)
-				assert.Equal(t, []time.Duration{
-					4 * time.Hour,
-					8 * time.Hour,
-					12 * time.Hour,
-					24 * time.Hour,
-					168 * time.Hour,
-					720 * time.Hour,
-				}, cfg.Durations)
+				assert.Equal(t, Escalation{
+					BaseDuration: 4 * time.Hour,
+					Multiplier:   2,
+					MaxDuration:  720 * time.Hour,
+				}, cfg.Escalation)
 			}
 			if tc.name == "custom policy" {
 				assert.Equal(t, 2160*time.Hour, cfg.ResetAfter)
-				assert.Equal(t, []time.Duration{time.Hour, 2 * time.Hour}, cfg.Durations)
+				assert.Equal(t, Escalation{
+					BaseDuration: time.Hour,
+					Multiplier:   3,
+					MaxDuration:  2 * time.Hour,
+				}, cfg.Escalation)
 			}
 			if tc.name == "disable reset" {
 				assert.Zero(t, cfg.ResetAfter)
+			}
+			if tc.name == "maximum equals base" {
+				assert.Equal(t, 4*time.Hour, cfg.Escalation.BaseDuration)
+				assert.Equal(t, cfg.Escalation.BaseDuration, cfg.Escalation.MaxDuration)
 			}
 		})
 	}
@@ -138,8 +167,10 @@ func TestConfigQuotedScalars(t *testing.T) {
 func TestConfigEnvironmentOverrides(t *testing.T) {
 	t.Setenv("CSEC_LAPI_PASSWORD", " secret\\new\n${LITERAL} ")
 	t.Setenv("CSEC_DRYRUN", "false")
+	t.Setenv("CSEC_ESCALATION_BASEDURATION", "1h")
+	t.Setenv("CSEC_ESCALATION_MULTIPLIER", "3")
+	t.Setenv("CSEC_ESCALATION_MAXDURATION", "2h")
 	t.Setenv("CSEC_RESETAFTER", "2160h")
-	t.Setenv("CSEC_DURATIONS", "1h,2h")
 	t.Setenv("CSEC_EXCLUDESCENARIOS", "crowdsecurity/http-probing,crowdsecurity/ssh-bf")
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("lapi:\n  url: http://crowdsec:8080\n  username: test\n  password: file-value\n"), 0600))
@@ -147,8 +178,12 @@ func TestConfigEnvironmentOverrides(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, " secret\\new\n${LITERAL} ", cfg.LAPI.Password)
 	assert.False(t, cfg.DryRun)
+	assert.Equal(t, Escalation{
+		BaseDuration: time.Hour,
+		Multiplier:   3,
+		MaxDuration:  2 * time.Hour,
+	}, cfg.Escalation)
 	assert.Equal(t, 2160*time.Hour, cfg.ResetAfter)
-	assert.Equal(t, []time.Duration{time.Hour, 2 * time.Hour}, cfg.Durations)
 	assert.Equal(t, []string{"crowdsecurity/http-probing", "crowdsecurity/ssh-bf"}, cfg.ExcludeScenarios)
 }
 
@@ -165,9 +200,9 @@ func TestConfigEnvironmentOnly(t *testing.T) {
 	_, err = Load("")
 	require.ErrorContains(t, err, "environment variables")
 	t.Setenv("CSEC_DRYRUN", "true")
-	t.Setenv("CSEC_DURATIONS", "8h,4h")
+	t.Setenv("CSEC_ESCALATION_MULTIPLIER", "1")
 	_, err = Load("")
-	require.ErrorContains(t, err, "strictly increasing")
+	require.ErrorContains(t, err, "must be at least 2")
 }
 
 func TestConfigDiscovery(t *testing.T) {
@@ -183,7 +218,7 @@ func TestConfigExample(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "http://crowdsec:8080", cfg.LAPI.URL)
 	assert.Equal(t, "replace-me", cfg.LAPI.Password)
-	assert.Len(t, cfg.Durations, 6)
+	assert.Equal(t, 4*time.Hour, cfg.Escalation.BaseDuration)
 }
 
 func TestConfigSchedules(t *testing.T) {

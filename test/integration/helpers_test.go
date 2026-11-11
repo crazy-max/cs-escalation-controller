@@ -92,8 +92,10 @@ func integrationRepeatOffense(t *testing.T, api *controller.Client, dryRun bool)
 		API:   api,
 		Store: store,
 		Policy: controller.Policy{
-			Durations:  []time.Duration{4 * time.Hour, 8 * time.Hour, 12 * time.Hour},
-			ResetAfter: 720 * time.Hour,
+			BaseDuration: 4 * time.Hour,
+			Multiplier:   2,
+			MaxDuration:  720 * time.Hour,
+			ResetAfter:   720 * time.Hour,
 		},
 		Log: zerolog.Nop(),
 	}
