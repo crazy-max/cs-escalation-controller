@@ -1,0 +1,37 @@
+name: cs-escalation-integration
+
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.2
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        cp -a /staging/etc/crowdsec/. /etc/crowdsec/
+        cscli machines add integration --password integration-password --url http://127.0.0.1:8080 --force
+        cscli bouncers add integration --key integration-bouncer-key
+        cscli allowlists create integration --description "Integration test addresses"
+        cscli allowlists add integration 192.0.2.99
+        exec crowdsec -no-cs -no-capi
+    tmpfs:
+      - /etc/crowdsec
+      - /var/lib/crowdsec/data
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    build:
+      context: ..
+      target: integration
+    volumes:
+      - ${DESTDIR:-../bin}/coverage/integration:/coverage
+    depends_on:
+      crowdsec:
+        condition: service_healthy
+
+networks:
+  default:
+    internal: true
