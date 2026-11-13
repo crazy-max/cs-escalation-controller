@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026/11/13)
+
+* Support day and week durations by @crazy-max in #15
+* Preserve scenario and source context by @crazy-max in #16
+* Add escalation provenance metadata by @crazy-max in #16
+
+**Full Changelog**: [`v0.1.0...v0.2.0`](https://github.com/crazy-max/cs-escalation-controller/compare/v0.1.0...v0.2.0)
+
 ## 0.1.0 (2026/11/11)
 
 * Initial release.
