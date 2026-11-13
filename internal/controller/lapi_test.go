@@ -60,19 +60,106 @@ func TestOfficialClientContract(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, allowed)
 	now := time.Now().UTC()
+	source := testAlert(42, now)
+	source.ScenarioVersion = new("0.3")
+	source.ScenarioHash = new("scenario-hash")
+	source.MachineID = "detector"
+	source.UUID = "source-uuid"
+	source.Message = new("Ip 192.0.2.1 performed 'crowdsecurity/http-probing' (11 events).")
+	source.Meta = models.Meta{
+		{
+			Key:   "target_uri",
+			Value: `["/wp-login.php"]`,
+		},
+		{
+			Key:   "method",
+			Value: `["GET"]`,
+		},
+	}
+	source.Source.IP = "192.0.2.1"
+	source.Source.Scope = new("ip")
+	source.Source.Value = new("::ffff:192.0.2.1")
+	source.Source.Cn = "SE"
+	source.Source.AsName = "Example AS"
+	source.Source.AsNumber = "64500"
+	source.Source.Range = "192.0.2.0/24"
+	source.Source.Latitude = 59.3
+	source.Source.Longitude = 18.1
+	originalSource := *source.Source
+	err = c.Ban(ctx, Operation{
+		IP:                "192.0.2.1",
+		AlertID:           42,
+		Tier:              2,
+		Until:             now.Add(12 * time.Hour),
+		SourceDecisionIDs: []int64{123, 124},
+		SourceBanUntil:    now.Add(4 * time.Hour),
+	}, source, now)
+	require.Error(t, err)
+	assert.Equal(t, 1, writes, "ambiguous write retried")
+	require.Len(t, submitted, 1)
+	assert.Equal(t, Origin, submitted[0].Kind)
+	expectedSource := originalSource
+	expectedSource.Scope = new("Ip")
+	expectedSource.Value = new("192.0.2.1")
+	assert.Equal(t, &expectedSource, submitted[0].Source)
+	assert.Equal(t, originalSource, *source.Source, "source alert must not be mutated")
+	assert.Equal(t, source.Scenario, submitted[0].Scenario)
+	assert.Equal(t, source.ScenarioVersion, submitted[0].ScenarioVersion)
+	assert.Empty(t, value(submitted[0].ScenarioHash))
+	assert.Equal(t, "Repeat offense: tier 3, source alert 42", value(submitted[0].Message))
+	assert.Equal(t, models.Meta{
+		{
+			Key:   "escalation_tier",
+			Value: "3",
+		},
+		{
+			Key:   "source_alert_id",
+			Value: "42",
+		},
+		{
+			Key:   "escalation_until",
+			Value: now.Add(12 * time.Hour).Format(time.RFC3339),
+		},
+		{
+			Key:   "source_decision_ids",
+			Value: "[123,124]",
+		},
+		{
+			Key:   "source_ban_until",
+			Value: now.Add(4 * time.Hour).Format(time.RFC3339),
+		},
+		{
+			Key:   "escalation_added_duration",
+			Value: "8h0m0s",
+		},
+		{
+			Key:   "source_machine_id",
+			Value: "detector",
+		},
+		{
+			Key:   "source_alert_uuid",
+			Value: "source-uuid",
+		},
+	}, submitted[0].Meta)
+	assert.Empty(t, submitted[0].Events)
+	assert.Zero(t, value(submitted[0].EventsCount))
+	require.Len(t, submitted[0].Decisions, 1)
+	assert.Equal(t, source.Scenario, submitted[0].Decisions[0].Scenario)
+	assert.Equal(t, Origin, value(submitted[0].Decisions[0].Origin))
+	assert.Equal(t, "12h0m0s", value(submitted[0].Decisions[0].Duration))
+	// Operations persisted before provenance was introduced still submit safely.
 	err = c.Ban(ctx, Operation{
 		IP:      "192.0.2.1",
 		AlertID: 42,
 		Tier:    2,
 		Until:   now.Add(12 * time.Hour),
-	}, now)
+	}, source, now)
 	require.Error(t, err)
-	assert.Equal(t, 1, writes, "ambiguous write retried")
+	assert.Equal(t, 2, writes)
 	require.Len(t, submitted, 1)
-	assert.Equal(t, Origin, submitted[0].Kind)
-	require.Len(t, submitted[0].Decisions, 1)
-	assert.Equal(t, Origin, value(submitted[0].Decisions[0].Origin))
-	assert.Equal(t, "12h0m0s", value(submitted[0].Decisions[0].Duration))
+	for _, meta := range submitted[0].Meta {
+		assert.NotContains(t, []string{"source_ban_until", "source_decision_ids", "escalation_added_duration"}, meta.Key)
+	}
 }
 
 func TestOfficialClientReauthenticates(t *testing.T) {

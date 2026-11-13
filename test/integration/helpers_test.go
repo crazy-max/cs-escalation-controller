@@ -71,8 +71,15 @@ func submitIntegrationAttack(t *testing.T, fixture *apiclient.ApiClient) {
 		Simulated:       new(false),
 		Remediation:     true,
 		Source: &models.Source{
-			Scope: new(types.Ip),
-			Value: new("192.0.2.1"),
+			Scope:     new(types.Ip),
+			Value:     new("192.0.2.1"),
+			IP:        "192.0.2.1",
+			Cn:        "SE",
+			AsName:    "Example AS",
+			AsNumber:  "64500",
+			Range:     "192.0.2.0/24",
+			Latitude:  59.3,
+			Longitude: 18.1,
 		},
 	}
 	b := *a

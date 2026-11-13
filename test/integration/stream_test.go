@@ -8,6 +8,7 @@ import (
 
 	"github.com/crazy-max/cs-escalation-controller/internal/controller"
 	"github.com/crowdsecurity/crowdsec/pkg/apiclient"
+	"github.com/crowdsecurity/crowdsec/pkg/models"
 	"github.com/crowdsecurity/crowdsec/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,6 +67,13 @@ func TestStreamIgnoresOwnBans(t *testing.T) {
 		AlertID: 1,
 		Tier:    1,
 		Until:   now.Add(8 * time.Hour),
+	}, &models.Alert{
+		Scenario:        new("integration/first-scenario"),
+		ScenarioVersion: new("1"),
+		Source: &models.Source{
+			Scope: new("Ip"),
+			Value: new("192.0.2.1"),
+		},
 	}, now))
 	require.Len(t, integrationEscalations(t, fixture), 1)
 	changes, err := stream.Decisions(t.Context(), false)
