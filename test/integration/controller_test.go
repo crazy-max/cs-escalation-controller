@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"testing"
 	"time"
@@ -47,6 +48,34 @@ func TestControllerEscalationRestart(t *testing.T) {
 	assert.LessOrEqual(t, duration, 8*time.Hour)
 	assert.Equal(t, controller.Origin, *d.Origin)
 	assert.Equal(t, "192.0.2.1", *d.Value)
+	assert.Equal(t, "integration/first-scenario", *got[0].Scenario)
+	assert.Equal(t, *got[0].Scenario, *d.Scenario)
+	assert.Empty(t, *got[0].ScenarioHash)
+	assert.Equal(t, controller.Origin, got[0].Kind)
+	meta := make(map[string]string)
+	for _, item := range got[0].Meta {
+		meta[item.Key] = item.Value
+	}
+	assert.Equal(t, "2", meta["escalation_tier"])
+	assert.Equal(t, "integration", meta["source_machine_id"])
+	var sourceID int64
+	require.NoError(t, json.Unmarshal([]byte(meta["source_alert_id"]), &sourceID))
+	source, err := api.Alert(t.Context(), sourceID)
+	require.NoError(t, err)
+	assert.Equal(t, source.UUID, meta["source_alert_uuid"])
+	assert.Equal(t, source.Source, got[0].Source)
+	var decisionIDs []int64
+	require.NoError(t, json.Unmarshal([]byte(meta["source_decision_ids"]), &decisionIDs))
+	require.Len(t, source.Decisions, 1)
+	assert.Equal(t, []int64{source.Decisions[0].ID}, decisionIDs)
+	baseUntil, err := time.Parse(time.RFC3339, meta["source_ban_until"])
+	require.NoError(t, err)
+	until, err := time.Parse(time.RFC3339, meta["escalation_until"])
+	require.NoError(t, err)
+	added, err := time.ParseDuration(meta["escalation_added_duration"])
+	require.NoError(t, err)
+	assert.WithinDuration(t, baseUntil.Add(added), until, time.Second)
+	assert.InDelta(t, float64(4*time.Hour), float64(added), float64(5*time.Second))
 }
 
 func TestControllerStart(t *testing.T) {

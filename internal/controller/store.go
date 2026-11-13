@@ -16,11 +16,13 @@ const (
 )
 
 type Operation struct {
-	IP        string    `json:"ip"`
-	AlertID   int64     `json:"alert_id"`
-	Tier      int       `json:"tier"`
-	Until     time.Time `json:"until"`
-	Attempted bool      `json:"attempted"`
+	IP                string    `json:"ip"`
+	AlertID           int64     `json:"alert_id"`
+	Tier              int       `json:"tier"`
+	Until             time.Time `json:"until"`
+	Attempted         bool      `json:"attempted"`
+	SourceDecisionIDs []int64   `json:"source_decision_ids,omitempty"`
+	SourceBanUntil    time.Time `json:"source_ban_until,omitzero"`
 }
 
 type State struct {

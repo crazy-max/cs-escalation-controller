@@ -21,7 +21,7 @@ type API interface {
 	Alerts(context.Context) ([]*models.Alert, time.Time, error)
 	Alert(context.Context, int64) (*models.Alert, error)
 	Allowlisted(context.Context, string) (bool, error)
-	Ban(context.Context, Operation, time.Time) error
+	Ban(context.Context, Operation, *models.Alert, time.Time) error
 }
 
 type Controller struct {
@@ -71,7 +71,7 @@ func (c *Controller) Reconcile(ctx context.Context) (resultErr error) {
 				seen++
 				continue
 			}
-			ip, baseUntil, ok := c.qualifying(a, observed)
+			ip, baseUntil, decisionIDs, ok := c.qualifying(a, observed)
 			if !ok {
 				notQualifying++
 				continue
@@ -101,10 +101,12 @@ func (c *Controller) Reconcile(ctx context.Context) (resultErr error) {
 			c.Log.Info().Str("ip", ip).Int("tier", episode.Tier+1).Time("until", episode.Until).Bool("dry_run", s.DryRun).Msg("offense")
 			if !s.DryRun && episode.Until.After(baseUntil.Add(2*time.Second)) {
 				s.Pending[a.ID] = Operation{
-					IP:      ip,
-					AlertID: a.ID,
-					Tier:    episode.Tier,
-					Until:   episode.Until,
+					IP:                ip,
+					AlertID:           a.ID,
+					Tier:              episode.Tier,
+					Until:             episode.Until,
+					SourceDecisionIDs: decisionIDs,
+					SourceBanUntil:    baseUntil,
 				}
 			}
 		}
@@ -157,16 +159,17 @@ func (c *Controller) Reconcile(ctx context.Context) (resultErr error) {
 	return stderrors.Join(failures...)
 }
 
-func (c *Controller) qualifying(a *models.Alert, now time.Time) (string, time.Time, bool) {
+func (c *Controller) qualifying(a *models.Alert, now time.Time) (string, time.Time, []int64, bool) {
 	if value(a.Simulated) || a.Source == nil || !strings.EqualFold(value(a.Source.Scope), types.Ip) || slices.Contains(c.ExcludeScenarios, value(a.Scenario)) {
-		return "", time.Time{}, false
+		return "", time.Time{}, nil, false
 	}
 	ip, err := netip.ParseAddr(value(a.Source.Value))
 	if err != nil {
-		return "", time.Time{}, false
+		return "", time.Time{}, nil, false
 	}
 	ip = ip.Unmap()
 	var until time.Time
+	var decisionIDs []int64
 	for _, d := range a.Decisions {
 		if !isLocalIPBan(d) {
 			continue
@@ -176,11 +179,14 @@ func (c *Controller) qualifying(a *models.Alert, now time.Time) (string, time.Ti
 			continue
 		}
 		duration, err := time.ParseDuration(value(d.Duration))
-		if err == nil && duration > 0 && now.Add(duration).After(until) {
-			until = now.Add(duration)
+		if err == nil && duration > 0 {
+			decisionIDs = append(decisionIDs, d.ID)
+			if now.Add(duration).After(until) {
+				until = now.Add(duration)
+			}
 		}
 	}
-	return ip.String(), until, !until.IsZero()
+	return ip.String(), until, decisionIDs, !until.IsZero()
 }
 
 func (c *Controller) reconcileOperation(ctx context.Context, op Operation) error {
@@ -209,7 +215,7 @@ func (c *Controller) reconcileOperation(ctx context.Context, op Operation) error
 	if err != nil {
 		return err
 	}
-	ip, _, ok := c.qualifying(a, time.Now().UTC())
+	ip, _, _, ok := c.qualifying(a, time.Now().UTC())
 	if !ok || ip != op.IP {
 		return finish()
 	}
@@ -222,7 +228,7 @@ func (c *Controller) reconcileOperation(ctx context.Context, op Operation) error
 	}); err != nil {
 		return err
 	}
-	if err := c.API.Ban(ctx, op, time.Now().UTC()); err != nil {
+	if err := c.API.Ban(ctx, op, a, time.Now().UTC()); err != nil {
 		return errors.Wrapf(err, "alert %d: write outcome uncertain", op.AlertID)
 	}
 	c.Log.Info().Str("ip", op.IP).Int("tier", op.Tier+1).Time("until", op.Until).Msg("ban extended")

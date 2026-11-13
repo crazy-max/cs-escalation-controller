@@ -162,7 +162,7 @@ func TestLocalBanKinds(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			a := testAlert(1, f.observed)
 			a.Kind = kind
-			_, _, ok := c.qualifying(a, f.observed)
+			_, _, _, ok := c.qualifying(a, f.observed)
 			assert.True(t, ok)
 		})
 	}
@@ -207,7 +207,7 @@ func TestOnlyLocalIPBansQualify(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := testAlert(1, time.Now())
 			tc.change(a)
-			_, _, ok := c.qualifying(a, time.Now())
+			_, _, _, ok := c.qualifying(a, time.Now())
 			assert.False(t, ok, "unexpectedly qualified")
 		})
 	}
@@ -324,6 +324,65 @@ func TestAmbiguousWriteIsNotRepeatedAfterRestart(t *testing.T) {
 	assert.True(t, s.Pending[1].Attempted)
 }
 
+func TestPendingProvenanceSurvivesRestart(t *testing.T) {
+	c, f, path := setup(t, false)
+	require.NoError(t, c.Store.Update(func(s *State) error {
+		s.Episodes["192.0.2.1"] = Episode{Until: f.observed.Add(-time.Minute)}
+		return nil
+	}))
+	a := testAlert(42, f.observed)
+	a.Decisions[0].ID = 100
+	for _, tc := range []struct {
+		id     int64
+		change func(*models.Decision)
+	}{
+		{
+			id:     101,
+			change: func(d *models.Decision) { d.Duration = new("2h") },
+		},
+		{
+			id:     102,
+			change: func(d *models.Decision) { d.Value = new("192.0.2.2") },
+		},
+		{
+			id:     103,
+			change: func(d *models.Decision) { d.Origin = new(Origin) },
+		},
+		{
+			id:     104,
+			change: func(d *models.Decision) { d.Type = new("captcha") },
+		},
+		{
+			id:     105,
+			change: func(d *models.Decision) { d.Duration = new("-1s") },
+		},
+		{
+			id:     106,
+			change: func(d *models.Decision) { d.Duration = new("invalid") },
+		},
+	} {
+		d := *a.Decisions[0]
+		d.ID = tc.id
+		tc.change(&d)
+		a.Decisions = append(a.Decisions, &d)
+	}
+	f.alerts = []*models.Alert{a}
+	f.allowErr = errors.New("temporarily unavailable")
+	require.ErrorIs(t, c.Reconcile(t.Context()), f.allowErr)
+	require.NoError(t, c.Store.Close())
+	reopened, err := OpenStore(path, "test", false, f.observed)
+	require.NoError(t, err)
+	defer reopened.Close()
+	c.Store = reopened
+	f.allowErr = nil
+	f.fresh = testAlert(42, f.observed)
+	f.fresh.Decisions[0].Duration = new("3h")
+	require.NoError(t, c.Reconcile(t.Context()))
+	require.Len(t, f.bans, 1)
+	assert.Equal(t, []int64{100, 101}, f.bans[0].SourceDecisionIDs)
+	assert.Equal(t, f.observed.Add(4*time.Hour), f.bans[0].SourceBanUntil)
+}
+
 type fakeAPI struct {
 	alerts   []*models.Alert
 	observed time.Time
@@ -351,7 +410,7 @@ func (f *fakeAPI) Allowlisted(context.Context, string) (bool, error) {
 	return f.allowed, f.allowErr
 }
 
-func (f *fakeAPI) Ban(_ context.Context, op Operation, _ time.Time) error {
+func (f *fakeAPI) Ban(_ context.Context, op Operation, _ *models.Alert, _ time.Time) error {
 	f.bans = append(f.bans, op)
 	return f.banErr
 }

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -79,37 +80,71 @@ func (c *Client) Allowlisted(ctx context.Context, ip string) (bool, error) {
 	return allowed, err
 }
 
-func (c *Client) Ban(ctx context.Context, op Operation, now time.Time) error {
+func (c *Client) Ban(ctx context.Context, op Operation, source *models.Alert, now time.Time) error {
 	duration := op.Until.Sub(now).Truncate(time.Second)
 	if duration <= 0 {
 		return errors.New("escalation expired before submission")
 	}
-	scenario := fmt.Sprintf("%s/%d", Origin, op.AlertID)
+	// The caller has revalidated this source alert against the operation's IP.
+	alertSource := *source.Source
+	alertSource.Scope = new(types.Ip)
+	alertSource.Value = &op.IP
 	a := &models.Alert{
 		StartAt:         new(now.Format(time.RFC3339)),
 		StopAt:          new(now.Format(time.RFC3339)),
-		Scenario:        &scenario,
-		ScenarioVersion: new("1"),
-		ScenarioHash:    new(""),
+		Scenario:        source.Scenario,
+		ScenarioVersion: source.ScenarioVersion,
+		ScenarioHash:    new(""), // An escalation is synthetic, not a new certified scenario detection.
 		Message:         new(fmt.Sprintf("Repeat offense: tier %d, source alert %d", op.Tier+1, op.AlertID)),
-		EventsCount:     new(int32(0)),
-		Capacity:        new(int32(0)),
-		Leakspeed:       new("0"),
-		Simulated:       new(false),
-		Events:          []*models.Event{},
-		Source: &models.Source{
-			Scope: new(types.Ip),
-			Value: &op.IP,
+		Meta: models.Meta{
+			{
+				Key:   "escalation_tier",
+				Value: fmt.Sprint(op.Tier + 1),
+			},
+			{
+				Key:   "source_alert_id",
+				Value: fmt.Sprint(op.AlertID),
+			},
+			{
+				Key:   "escalation_until",
+				Value: op.Until.UTC().Format(time.RFC3339),
+			},
 		},
-		Kind: Origin,
+		EventsCount: new(int32(0)),
+		Capacity:    new(int32(0)),
+		Leakspeed:   new("0"),
+		Simulated:   new(false),
+		Events:      []*models.Event{},
+		Source:      &alertSource,
+		Kind:        Origin,
 		Decisions: []*models.Decision{{
 			Origin:   new(Origin),
 			Type:     new(types.DecisionTypeBan),
 			Scope:    new(types.Ip),
 			Value:    &op.IP,
 			Duration: new(duration.String()),
-			Scenario: &scenario,
+			Scenario: source.Scenario,
 		}},
+	}
+	if len(op.SourceDecisionIDs) > 0 {
+		ids, err := json.Marshal(op.SourceDecisionIDs)
+		if err != nil {
+			return err
+		}
+		a.Meta = append(a.Meta, &models.MetaItems0{Key: "source_decision_ids", Value: string(ids)})
+	}
+	// Pending operations from older versions have no recorded timing baseline.
+	if !op.SourceBanUntil.IsZero() {
+		a.Meta = append(a.Meta,
+			&models.MetaItems0{Key: "source_ban_until", Value: op.SourceBanUntil.UTC().Format(time.RFC3339)},
+			&models.MetaItems0{Key: "escalation_added_duration", Value: op.Until.Sub(op.SourceBanUntil).Round(time.Second).String()},
+		)
+	}
+	if source.MachineID != "" {
+		a.Meta = append(a.Meta, &models.MetaItems0{Key: "source_machine_id", Value: source.MachineID})
+	}
+	if source.UUID != "" {
+		a.Meta = append(a.Meta, &models.MetaItems0{Key: "source_alert_uuid", Value: source.UUID})
 	}
 	ids, _, err := c.api.Alerts.Add(ctx, models.AddAlertsRequest{a})
 	if err == nil && (ids == nil || len(*ids) != 1) {
